@@ -9,7 +9,7 @@ import {
   usePeerIds,
   useRoom,
 } from "@huddle01/react/hooks";
-import { AccessToken, Role } from "@huddle01/server-sdk/auth";
+import { Role } from "@huddle01/server-sdk/auth";
 import { Inter } from "next/font/google";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
@@ -128,10 +128,10 @@ export default function Home({ token }: Props) {
                 onClick={async () => {
                   const status = isRecording
                     ? await fetch(
-                        `/api/stopRecording?roomId=${router.query.roomId}`
+                        `/api/stopRecording?roomId=${router.query.roomId}`,
                       )
                     : await fetch(
-                        `/api/startRecording?roomId=${router.query.roomId}`
+                        `/api/startRecording?roomId=${router.query.roomId}`,
                       );
 
                   const data = await status.json();
@@ -175,7 +175,7 @@ export default function Home({ token }: Props) {
 
           <div className="mt-8 mb-32 grid gap-2 text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
             {peerIds.map((peerId) =>
-              peerId ? <RemotePeer key={peerId} peerId={peerId} /> : null
+              peerId ? <RemotePeer key={peerId} peerId={peerId} /> : null,
             )}
           </div>
         </div>
@@ -185,12 +185,11 @@ export default function Home({ token }: Props) {
   );
 }
 
-import { GetServerSidePropsContext } from "next";
+import type { GetServerSidePropsContext } from "next";
 
 export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
-  const accessToken = new AccessToken({
-    apiKey: process.env.API_KEY || "",
-    roomId: ctx.params?.roomId?.toString() || "",
+  const data = {
+    roomId: ctx.params?.roomId?.toString(),
     role: Role.HOST,
     permissions: {
       admin: true,
@@ -205,9 +204,25 @@ export const getServerSideProps = async (ctx: GetServerSidePropsContext) => {
       canSendData: true,
       canUpdateMetadata: true,
     },
-  });
+  };
 
-  const token = await accessToken.toJwt();
+  const tokenData = JSON.stringify(data);
+
+  console.log("tokenData: ", tokenData);
+
+  const res = await fetch(
+    "https://infra-api.huddle01.workers.dev/v2/create-peer-token",
+    {
+      body: tokenData,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.API_KEY ?? "",
+      },
+      method: "POST",
+    },
+  );
+
+  const { token } = await res.json();
 
   return {
     props: { token },
